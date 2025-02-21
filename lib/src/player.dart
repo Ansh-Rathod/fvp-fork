@@ -10,7 +10,7 @@ import 'dart:ui' as ui;
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
-import 'package:video_player_platform_interface/video_player_platform_interface.dart';
+import 'package:fvp/fvp.dart';
 
 import 'fvp_platform_interface.dart';
 import 'generated_bindings.dart';

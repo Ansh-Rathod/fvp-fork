@@ -4,17 +4,18 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/widgets.dart'; //
+
 import 'package:flutter/services.dart';
-import 'package:video_player_platform_interface/video_player_platform_interface.dart';
-import 'package:logging/logging.dart';
+import 'package:flutter/widgets.dart'; //
 import 'package:http/http.dart' as http;
+import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
-import 'fvp_platform_interface.dart';
-import 'extensions.dart';
-import 'media_info.dart';
 
 import '../mdk.dart' as mdk;
+import 'extensions.dart';
+import 'fvp_platform_interface.dart';
+import 'media_info.dart';
+import 'video_player/video_player_platform.dart';
 
 final _log = Logger('fvp');
 
@@ -219,7 +220,8 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
         });
       });
     } else {
-      mdk.setGlobalOption('subtitle.fonts.file', PlatformEx.assetUri(_subtitleFontFile ?? 'assets/subfont.ttf'));
+      mdk.setGlobalOption('subtitle.fonts.file',
+          PlatformEx.assetUri(_subtitleFontFile ?? 'assets/subfont.ttf'));
     }
     _globalOpts?.forEach((key, value) {
       mdk.setGlobalOption(key, value);
@@ -383,6 +385,7 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
     return _players[textureId]?.isLive ?? false;
   }
 
+  @override
   MediaInfo? getMediaInfo(int textureId) {
     return _players[textureId]?.mediaInfo;
   }
@@ -521,5 +524,41 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
       case DataSourceType.contentUri:
         return dataSource.uri!;
     }
+  }
+
+/////////// custom apis starts here
+
+  @override
+  void setSubtitleTrack(int textureId, int trackNum) {
+    _players[textureId]?.activeSubtitleTracks = [trackNum];
+  }
+
+  @override
+  Future<Duration?> toNextFrame(int textureId, [int? step]) async {
+    final duration = await _players[textureId]?.seek(
+      position: step ?? 1,
+      flags: const mdk.SeekFlag(mdk.SeekFlag.fromNow | mdk.SeekFlag.frame),
+    );
+    if (duration == null) {
+      return null;
+    }
+    return Duration(milliseconds: duration);
+  }
+
+  @override
+  Future<Duration?> toPrevFrame(int textureId, [int? step]) async {
+    final duration = await _players[textureId]?.seek(
+      position: step ?? -1,
+      flags: const mdk.SeekFlag(mdk.SeekFlag.fromNow | mdk.SeekFlag.frame),
+    );
+    if (duration == null) {
+      return null;
+    }
+    return Duration(milliseconds: duration);
+  }
+
+  @override
+  void setAudioTrack(int textureId, int trackNum) {
+    _players[textureId]?.activeAudioTracks = [trackNum];
   }
 }

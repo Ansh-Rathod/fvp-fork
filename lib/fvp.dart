@@ -7,6 +7,9 @@ import 'src/video_player_mdk.dart'
     if (dart.library.html) 'src/video_player_dummy.dart';
 
 export 'src/controller.dart';
+export 'src/video_player/avfoundation.dart';
+export 'src/video_player/closed_caption_file.dart';
+export 'src/video_player/video_player.dart';
 
 /// Registers this plugin as the default instance of VideoPlayerPlatform. Then your [VideoPlayer] will support all platforms.
 /// If registerWith is not called, the previous(usually official) implementation will be used when available.

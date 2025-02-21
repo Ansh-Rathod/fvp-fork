@@ -3,12 +3,11 @@
 // see https://github.com/ardera/flutter_packages/blob/main/packages/flutterpi_gstreamer_video_player/lib/src/controller.dart
 import 'dart:typed_data';
 
-import 'package:video_player/video_player.dart';
-import 'package:video_player_platform_interface/video_player_platform_interface.dart';
-
+import '../fvp.dart';
 import 'media_info.dart'
     if (dart.library.js_interop) 'media_info_dummy.dart'
     if (dart.library.html) 'media_info_dummy.dart';
+import 'video_player/video_player_platform.dart';
 import 'video_player_mdk.dart'
     if (dart.library.js_interop) 'video_player_dummy.dart'
     if (dart.library.html) 'video_player_dummy.dart';
