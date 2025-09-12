@@ -1,4 +1,4 @@
-// Copyright 2022-2024 Wang Bin. All rights reserved.
+// Copyright 2022-2025 Wang Bin. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import 'dart:ffi';
@@ -7,6 +7,7 @@ import 'package:ffi/ffi.dart';
 import 'generated_bindings.dart';
 
 import 'lib.dart';
+import 'global.dart';
 
 class CodecParameters {
   /// codec name
@@ -118,6 +119,9 @@ class VideoCodecParameters extends CodecParameters {
   /// pixel aspect ratio
   double par = 1.0;
 
+  var colorSpace = ColorSpace.unknown;
+  var doviProfile = 0;
+
   VideoCodecParameters();
 
   VideoCodecParameters._from(mdkVideoCodecParameters cp) {
@@ -138,6 +142,8 @@ class VideoCodecParameters extends CodecParameters {
     if (cp.par > 0) {
       par = cp.par;
     }
+    colorSpace = ColorSpace.from(cp.color_space);
+    doviProfile = cp.dovi_profile;
   }
 
   @override
@@ -292,7 +298,10 @@ class MediaInfo {
   var startTime = 0;
 
   /// duration in milliseconds. may be 0, for example live stream.
+  /// duration may change when playing a stream being recorded
   var duration = 0;
+
+  /// when stream is loaded, the value from container. when playing, it's updated to the realtime value
   var bitRate = 0;
 
   /// format or container name, for example mp4, flv

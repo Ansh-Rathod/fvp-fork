@@ -1,3 +1,53 @@
+## 0.34.0
+
+* add rockchip decoder
+* deploy libmdk plugins
+
+## 0.33.1
+
+* fix protocol whitelist
+* enable dav1d, hap
+
+## 0.33.0
+
+* improve test textureId/playerId only once
+* add `VideoPlayerController.setProgram()`
+* use highest resolution for rendering if stream have multiple programs/tracks
+* enable wayland display
+* linux/elinux: improve gl resource cleanup
+
+## 0.32.1
+
+* compatible with video_player 2.10.0+
+
+## 0.32.0
+
+* support [embedded linux](https://github.com/sony/flutter-elinux), tested on x86 and arm, with x11, wayland and gbm.
+* fix an fbo error on linux
+* enable rkmpp decoder for rockchip
+
+## 0.31.2
+
+* fix rpath on linux
+* cmake: add env var FVP_DEPS_URL to download dependencies from github
+
+## 0.31.1
+
+* fix link error if use cmake 4.0 on linux
+
+## 0.31.0
+
+* fix crash when killing app on iOS
+* fix crash when exiting app on linux
+
+
+## 0.30.0
+
+* `subtitleFontFile` option can be an http url
+* ios: fix no sound in silent mode
+* android: fix snapshot result is empty
+* android: use `onSurfaceCleanup` for flutter >= 3.28
+
 ## 0.29.0
 
 * not declared as video_player implementation in pubdec.yaml, fix conflicting with other implementations

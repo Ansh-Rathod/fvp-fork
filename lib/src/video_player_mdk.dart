@@ -157,12 +157,27 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
 
     if (_decoders == null && !PlatformEx.isAndroidEmulator()) {
       // prefer hardware decoders
-      const vd = {
-        'windows': ['MFT:d3d=11', "D3D11", "DXVA", 'CUDA', 'FFmpeg'],
-        'macos': ['VT', 'FFmpeg'],
-        'ios': ['VT', 'FFmpeg'],
-        'linux': ['VAAPI', 'CUDA', 'VDPAU', 'FFmpeg'],
-        'android': ['AMediaCodec', 'FFmpeg'],
+      const vdRk = ['rockchip', 'rkmpp', 'FFmpeg', 'dav1d'];
+      const vdPi = ['V4L2M2M', 'FFmpeg:hwcontext=drm', 'FFmpeg', 'dav1d'];
+      final vdLinux = PlatformEx.isRockchip()
+          ? vdRk
+          : (PlatformEx.isRaspberryPi()
+              ? vdPi
+              : ['VAAPI', 'CUDA', 'VDPAU', 'hap', 'FFmpeg', 'dav1d']);
+      final vd = {
+        'windows': [
+          'MFT:d3d=11',
+          "D3D11",
+          "DXVA",
+          'CUDA',
+          'hap',
+          'FFmpeg',
+          'dav1d'
+        ],
+        'macos': ['VT', 'hap', 'FFmpeg', 'dav1d'],
+        'ios': ['VT', 'FFmpeg', 'dav1d'],
+        'linux': vdLinux,
+        'android': ['AMediaCodec', 'FFmpeg', 'dav1d'],
       };
       _decoders = vd[Platform.operatingSystem];
     }
@@ -245,11 +260,17 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
     //player.setProperty("keep_open", "1");
     player.setProperty('video.decoder', 'shader_resource=0');
     player.setProperty('avformat.strict', 'experimental');
+    player.setProperty('avformat.safe', '0');
     player.setProperty('avio.reconnect', '1');
     player.setProperty('avio.reconnect_delay_max', '7');
-    player.setProperty('avio.protocol_whitelist',
-        'file,rtmp,http,https,tls,rtp,tcp,udp,crypto,httpproxy,data,concatf,concat,subfile');
     player.setProperty('avformat.rtsp_transport', 'tcp');
+    player.setProperty('avformat.extension_picky', '0');
+    player.setProperty('avformat.allowed_segment_extensions', 'ALL');
+    if (dataSource.sourceType != DataSourceType.network) {
+      // for m3u8 local file etc.
+      player.setProperty('avio.protocol_whitelist',
+          'file,ftp,rtmp,http,https,tls,rtp,tcp,udp,crypto,httpproxy,data,concatf,concat,subfile');
+    }
     _playerOpts?.forEach((key, value) {
       player.setProperty(key, value);
     });
@@ -453,6 +474,10 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
 
   void setSaturation(int textureId, double value) {
     _players[textureId]?.setVideoEffect(mdk.VideoEffect.saturation, [value]);
+  }
+
+  void setProgram(int textureId, int programId) {
+    _players[textureId]?.setActiveTracks(mdk.MediaType.unknown, [programId]);
   }
 
 // embedded tracks, can be main data source from create(), or external media source via setExternalAudio
