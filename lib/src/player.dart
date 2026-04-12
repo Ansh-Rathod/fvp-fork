@@ -1,4 +1,4 @@
-// Copyright 2022-2025 Wang Bin. All rights reserved.
+// Copyright 2022-2026 Wang Bin. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import 'dart:async';
@@ -38,8 +38,8 @@ class Player {
             final category = message[2] as String;
             final detail = message[3] as String;
             final ev = MediaEvent(error, category, detail);
-            for (final cb in _eventCb) {
-              cb(ev);
+            if (_eventCb.hasListener) {
+              _eventCb.add(ev);
             }
           }
         case 1:
@@ -47,8 +47,8 @@ class Player {
             // state
             final oldValue = message[1] as int;
             final newValue = message[2] as int;
-            for (final cb in _stateCb) {
-              cb(PlaybackState.from(oldValue), PlaybackState.from(newValue));
+            if (_stateCb.hasListener) {
+              _stateCb.add((oldValue: PlaybackState.from(oldValue), newValue: PlaybackState.from(newValue)));
             }
             Libfvp.replyType(nativeHandle, type, nullptr);
           }
@@ -58,8 +58,8 @@ class Player {
             final oldValue = message[1] as int;
             final newValue = message[2] as int;
             bool ret = true;
-            for (var cb in _statusCb) {
-              ret = cb(MediaStatus(oldValue), MediaStatus(newValue)) && ret;
+            if (_statusCb.hasListener) {
+              _statusCb.add((oldValue: MediaStatus(oldValue), newValue: MediaStatus(newValue)));
             }
             rep.ref.mediaStatus.ret = ret;
             Libfvp.replyType(nativeHandle, type, rep.cast());
@@ -121,10 +121,13 @@ class Player {
     Libfvp.registerPort(nativeHandle, NativeApi.postCObject.cast(),
         _receivePort.sendPort.nativePort);
 
-    onStateChanged((oldValue, newValue) {
-      _state = newValue;
+    _stateCb.stream.listen((event) {
+      _state = event.newValue;
     });
-    onMediaStatus((oldValue, newValue) {
+    Libfvp.registerType(nativeHandle, 1, false);
+    _statusCb.stream.listen((event) {
+      final oldValue = event.oldValue;
+      final newValue = event.newValue;
       if (!oldValue.test(MediaStatus.loaded) &&
           newValue.test(MediaStatus.loaded)) {
         _setVideoSize();
@@ -147,9 +150,9 @@ class Player {
           _videoSize.complete(null);
         }
       }
-      return true;
     });
-    onEvent((e) {
+    Libfvp.registerType(nativeHandle, 2, false);
+    _eventCb.stream.listen((e) {
       if (_videoSize.isCompleted) {
         return;
       }
@@ -157,6 +160,7 @@ class Player {
         _setVideoSize();
       }
     });
+    Libfvp.registerType(nativeHandle, 0, false);
   }
 
   /// Release resources
@@ -169,9 +173,12 @@ class Player {
     await updateTexture(width: -1);
     state = PlaybackState.stopped;
     Libfvp.unregisterPort(nativeHandle);
-    onEvent(null);
-    onStateChanged(null);
-    onMediaStatus(null);
+    _eventCb.close();
+    Libfvp.unregisterType(nativeHandle, 0);
+    _stateCb.close();
+    Libfvp.unregisterType(nativeHandle, 1);
+    _statusCb.close();
+    Libfvp.unregisterType(nativeHandle, 2);
 
     _receivePort.close();
 
@@ -674,48 +681,18 @@ class Player {
   }
   // callbacks
 
-  /// Set [MediaEvent] callback.
+  /// Get a [MediaEvent] stream.
   /// https://github.com/wang-bin/mdk-sdk/wiki/Player-APIs#player-oneventstdfunctionboolconst-mediaevent-cb-callbacktoken-token--nullptr
-  void onEvent(void Function(MediaEvent)? callback) {
-    if (callback == null) {
-      _eventCb.clear();
-      Libfvp.unregisterType(nativeHandle, 0);
-    } else {
-      _eventCb.add(callback);
-      Libfvp.registerType(nativeHandle, 0, false);
-    }
-  }
+  Stream<MediaEvent> get onEvent => _eventCb.stream;
 
-  /// Set a [PlaybackState] change callback.
+  /// Get a [PlaybackState] change stream.
   /// https://github.com/wang-bin/mdk-sdk/wiki/Player-APIs#player-onstatechangedstdfunctionvoidstate-cb
-// reply: true to let native code wait for dart callback result
-  void onStateChanged(
-      void Function(PlaybackState oldValue, PlaybackState newValue)? callback,
-      {bool reply = false}) {
-    if (callback == null) {
-      _stateCb.clear();
-      Libfvp.unregisterType(nativeHandle, 1);
-    } else {
-      _stateCb.add(callback);
-      Libfvp.registerType(nativeHandle, 1, reply);
-    }
-  }
+  Stream<({PlaybackState oldValue, PlaybackState newValue})> get onStateChanged => _stateCb.stream;
 
-  /// Add a [MediaStatus] callback or remove all callbacks.
+  /// Get a [MediaStatus] change stream.
   /// https://github.com/wang-bin/mdk-sdk/wiki/Player-APIs#player-onmediastatusstdfunctionboolmediastatus-oldvalue-mediastatus-newvalue-cb-callbacktoken-token--nullptr
 // reply: true to let native code wait for dart callback result, may result in dead lock because when native waiting main isolate reply, main isolate may execute another task(e.g. frequent seekTo) which also acquire the same lock in native
-// only the last callback reply parameter works
-  void onMediaStatus(
-      bool Function(MediaStatus oldValue, MediaStatus newValue)? callback,
-      {bool reply = false}) {
-    if (callback == null) {
-      _statusCb.clear();
-      Libfvp.unregisterType(nativeHandle, 2);
-    } else {
-      _statusCb.add(callback);
-      Libfvp.registerType(nativeHandle, 2, reply);
-    }
-  }
+  Stream<({MediaStatus oldValue, MediaStatus newValue})> get onMediaStatus => _statusCb.stream;
 
   void onSubtitleText(
       void Function(double start, double end, List<String> text)? callback) {
@@ -778,10 +755,9 @@ class Player {
   Completer<int>? _seeked;
   final _receivePort = ReceivePort();
 
-  final _eventCb = <Function(MediaEvent)>[];
-  final _stateCb = <Function(PlaybackState oldValue, PlaybackState newValue)>[];
-  final _statusCb =
-      <bool Function(MediaStatus oldValue, MediaStatus newValue)>[];
+  final _eventCb = StreamController<MediaEvent>.broadcast();
+  final _stateCb = StreamController<({PlaybackState oldValue, PlaybackState newValue})>.broadcast();
+  final _statusCb = StreamController<({MediaStatus oldValue, MediaStatus newValue})>.broadcast();
   Function(double start, double end, List<String> text)? _subtitleCb;
   Future<bool> Function()? _prepareCb;
 

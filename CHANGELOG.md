@@ -1,3 +1,17 @@
+## 0.35.2
+
+* log plugin version
+
+## 0.35.1
+
+* fix linux arch for cmake 4.0+
+* fix flutter 3.38 android build
+
+## 0.35.0
+
+* add Player.onSubtitleText
+* allow hls & segments w/o or w/ any extension
+
 ## 0.34.0
 
 * add rockchip decoder
