@@ -2,11 +2,11 @@
 # installed that includes CMake 3.14 or later. You should not increase this
 # version, as doing so will cause the plugin to fail to compile for some
 # customers of the plugin.
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.17)
 
 # Project-level configuration.
 set(PROJECT_NAME "fvp")
-project(${PROJECT_NAME} VERSION 0.35.2
+project(${PROJECT_NAME} VERSION 0.39.0
     DESCRIPTION "Flutter video_player plugin via libmdk")
 set(PROJECT_VERSION_TWEAK 0)
 set(CMAKE_CXX_STANDARD 20)
@@ -46,7 +46,8 @@ apply_standard_settings(${PLUGIN_NAME})
 # between plugins. This should not be removed; any symbols that should be
 # exported should be explicitly exported with the FLUTTER_PLUGIN_EXPORT macro.
 set_target_properties(${PLUGIN_NAME} PROPERTIES
-  CXX_VISIBILITY_PRESET hidden)
+  CXX_VISIBILITY_PRESET hidden
+  OUTPUT_NAME "fvp")
 target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 #target_compile_definitions(${PLUGIN_NAME} PUBLIC DART_SHARED_LIB) # all platforms?
 

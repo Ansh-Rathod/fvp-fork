@@ -12,6 +12,8 @@ mdk-sdk/
 *.log
 *.pyc
 *.swp
+*.part
+.fvp-mdk-*/
 .DS_Store
 .atom/
 .buildlog/
@@ -29,6 +31,9 @@ migrate_working_dir/
 # VS Code which you may wish to be included in version control, so this line
 # is commented out by default.
 #.vscode/
+
+# OHOS local configuration (machine-specific)
+local.properties
 
 # Flutter/Dart/Pub related
 # Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2023-2026 WangBin <wbsecg1 at gmail.com>
  */
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -58,6 +58,9 @@ public class FvpPlugin implements FlutterPlugin, MethodCallHandler {
     texRegistry = flutterPluginBinding.getTextureRegistry();
     textures = new HashMap<>();
     surfaces = new HashMap<>();
+    // SurfaceView output for VideoViewType.platformView (full display
+    // resolution on TVs with an upscaled UI layer; tunneled playback).
+    flutterPluginBinding.getPlatformViewRegistry().registerViewFactory("fvp/video-view", new FvpVideoViewFactory());
   }
 
   @Override
@@ -148,15 +151,22 @@ public class FvpPlugin implements FlutterPlugin, MethodCallHandler {
 
   /*!
     \param playerHandle null to destroy
-    \param texId
+    \param texId a TextureRegistry id, or a negative synthetic id for platform views (FvpVideoView)
    */
-  private native void nativeSetSurface(long playerHandle, long texId, Surface surface, int w, int h, boolean tunnel);
+  static native void nativeSetSurface(long playerHandle, long texId, Surface surface, int w, int h, boolean tunnel);
+
+  /*!
+    Surface size change (SurfaceHolder.Callback.surfaceChanged). Only the GL
+    render path needs it; with "tunnel" the decoder owns the buffer geometry.
+   */
+  static native void nativeSetSurfaceSize(long texId, int w, int h);
 
   static {
     try {
-        System.loadLibrary("fvp_plugin");
+        System.loadLibrary("mdk");
+        System.loadLibrary("fvp");
     } catch (UnsatisfiedLinkError e) {
-        Log.w("FvpPlugin", "static initializer: loadLibrary fvp_plugin error: " + e);
+        Log.w("FvpPlugin", "static initializer: loadLibrary fvp error: " + e);
     }
   }
 }

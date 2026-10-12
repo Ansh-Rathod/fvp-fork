@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -45,87 +45,175 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
   }
 
   /// Clears one video.
-  Future<void> dispose(int textureId) {
+  Future<void> dispose(int playerId) {
     throw UnimplementedError('dispose() has not been implemented.');
   }
 
-  /// Creates an instance of a video player and returns its textureId.
+  /// Creates an instance of a video player and returns its playerId.
+  @Deprecated('Use createWithOptions() instead.')
   Future<int?> create(DataSource dataSource) {
     throw UnimplementedError('create() has not been implemented.');
   }
 
+  /// Creates an instance of a video player based on creation options
+  /// and returns its playerId.
+  Future<int?> createWithOptions(VideoCreationOptions options) {
+    return create(options.dataSource);
+  }
+
   /// Returns a Stream of [VideoEventType]s.
-  Stream<VideoEvent> videoEventsFor(int textureId) {
+  Stream<VideoEvent> videoEventsFor(int playerId) {
     throw UnimplementedError('videoEventsFor() has not been implemented.');
   }
 
   /// Sets the looping attribute of the video.
-  Future<void> setLooping(int textureId, bool looping) {
+  Future<void> setLooping(int playerId, bool looping) {
     throw UnimplementedError('setLooping() has not been implemented.');
   }
 
   /// Starts the video playback.
-  Future<void> play(int textureId) {
+  Future<void> play(int playerId) {
     throw UnimplementedError('play() has not been implemented.');
   }
 
   /// Stops the video playback.
-  Future<void> pause(int textureId) {
+  Future<void> pause(int playerId) {
     throw UnimplementedError('pause() has not been implemented.');
   }
 
   /// Sets the volume to a range between 0.0 and 1.0.
-  Future<void> setVolume(int textureId, double volume) {
+  Future<void> setVolume(int playerId, double volume) {
     throw UnimplementedError('setVolume() has not been implemented.');
   }
 
   /// Sets the video position to a [Duration] from the start.
-  Future<void> seekTo(int textureId, Duration position) {
+  Future<void> seekTo(int playerId, Duration position) {
     throw UnimplementedError('seekTo() has not been implemented.');
   }
 
   /// Sets the playback speed to a [speed] value indicating the playback rate.
-  Future<void> setPlaybackSpeed(int textureId, double speed) {
+  Future<void> setPlaybackSpeed(int playerId, double speed) {
     throw UnimplementedError('setPlaybackSpeed() has not been implemented.');
   }
 
   /// Gets the video position as [Duration] from the start.
-  Future<Duration> getPosition(int textureId) {
+  Future<Duration> getPosition(int playerId) {
     throw UnimplementedError('getPosition() has not been implemented.');
   }
 
-  /// Returns a widget displaying the video with a given textureID.
-  Widget buildView(int textureId) {
+  /// Returns a widget displaying the video with a given playerId.
+  @Deprecated('Use buildViewWithOptions() instead.')
+  Widget buildView(int playerId) {
     throw UnimplementedError('buildView() has not been implemented.');
   }
 
-  /// Sets the audio mode to mix with other sources
+  /// Returns a widget displaying the video based on given options.
+  Widget buildViewWithOptions(VideoViewOptions options) {
+    // Default implementation for backwards compatibility.
+    return buildView(options.playerId);
+  }
+
+  /// Sets the audio mode to mix with other sources.
   Future<void> setMixWithOthers(bool mixWithOthers) {
     throw UnimplementedError('setMixWithOthers() has not been implemented.');
   }
 
-  /// Sets additional options on web
-  Future<void> setWebOptions(int textureId, VideoPlayerWebOptions options) {
+  /// Sets whether the video should continue to play in the background.
+  Future<void> setAllowBackgroundPlayback(bool allowBackgroundPlayback) {
+    throw UnimplementedError('setAllowBackgroundPlayback() has not been implemented.');
+  }
+
+  /// Sets whether the screen is prevented from sleeping during video playback.
+  ///
+  /// The default implementation is a no-op, so platforms that do not support
+  /// controlling display sleep will silently use their default behavior.
+  Future<void> setPreventsDisplaySleepDuringVideoPlayback(
+    int playerId,
+    bool preventsDisplaySleepDuringVideoPlayback,
+  ) async {}
+
+  /// Sets additional options on web.
+  Future<void> setWebOptions(int playerId, VideoPlayerWebOptions options) {
     throw UnimplementedError('setWebOptions() has not been implemented.');
   }
 
-  MediaInfo? getMediaInfo(int textureId) {
+  /// Gets the available audio tracks for the video.
+  Future<List<VideoAudioTrack>> getAudioTracks(int playerId) {
+    throw UnimplementedError('getAudioTracks() has not been implemented.');
+  }
+
+  /// Selects which audio track is chosen for playback from its [trackId]
+  Future<void> selectAudioTrack(int playerId, String trackId) {
+    throw UnimplementedError('selectAudioTrack() has not been implemented.');
+  }
+
+  /// Returns whether audio track selection is supported on this platform.
+  ///
+  /// This method allows developers to query at runtime whether the current
+  /// platform supports audio track selection functionality. This is useful
+  /// for platforms like web where audio track selection may not be available.
+  ///
+  /// Returns `true` if [getAudioTracks] and [selectAudioTrack] are supported,
+  /// `false` otherwise.
+  ///
+  /// The default implementation returns `false`. Platform implementations
+  /// should override this to return `true` if they support audio track selection.
+  bool isAudioTrackSupportAvailable() {
+    return false;
+  }
+
+  /// Gets the available video tracks (quality variants) for the video.
+  ///
+  /// Returns a list of [VideoTrack] objects representing the available
+  /// video quality variants. For HLS/DASH streams, this returns the different
+  /// quality levels available. For non-adaptive videos, platform
+  /// implementations may return one or more tracks, or an empty list,
+  /// depending on the media and the metadata available.
+  Future<List<VideoTrack>> getVideoTracks(int playerId) {
+    throw UnimplementedError('getVideoTracks() has not been implemented.');
+  }
+
+  /// Selects which video track (quality variant) is chosen for playback.
+  ///
+  /// Pass a [VideoTrack] to select a specific quality.
+  /// Pass `null` to enable automatic quality selection (adaptive streaming).
+  Future<void> selectVideoTrack(int playerId, VideoTrack? track) {
+    throw UnimplementedError('selectVideoTrack() has not been implemented.');
+  }
+
+  /// Returns whether video track selection is supported on this platform.
+  ///
+  /// This method allows developers to query at runtime whether the current
+  /// platform supports video track (quality) selection functionality. This is
+  /// useful for platforms like web where video track selection may not be
+  /// available.
+  ///
+  /// Returns `true` if [getVideoTracks] and [selectVideoTrack] are supported,
+  /// `false` otherwise.
+  ///
+  /// The default implementation returns `false`. Platform implementations
+  /// should override this to return `true` if they support video track selection.
+  bool isVideoTrackSupportAvailable() {
+    return false;
+  }
+
+  MediaInfo? getMediaInfo(int playerId) {
     throw UnimplementedError('getMediaInfo() has not been implemented.');
   }
 
-  void setSubtitleTrack(int textureId, int trackNum) {
+  void setSubtitleTrack(int playerId, int trackNum) {
     throw UnimplementedError('setSubtitleTrack() has not been implemented.');
   }
 
-  void setAudioTrack(int textureId, int trackNum) {
-    throw UnimplementedError('getMediaInfo() has not been implemented.');
+  void setAudioTrack(int playerId, int trackNum) {
+    throw UnimplementedError('setAudioTrack() has not been implemented.');
   }
 
-  Future<Duration?> toNextFrame(int textureId, [int? step]) async {
+  Future<Duration?> toNextFrame(int playerId, [int? step]) async {
     throw UnimplementedError('toNextFrame() has not been implemented.');
   }
 
-  Future<Duration?> toPrevFrame(int textureId, [int? step]) async {
+  Future<Duration?> toPrevFrame(int playerId, [int? step]) async {
     throw UnimplementedError('toPrevFrame() has not been implemented.');
   }
 }
@@ -219,6 +307,15 @@ enum VideoFormat {
   other,
 }
 
+/// The type of video view to be used.
+enum VideoViewType {
+  /// Texture will be used to render video.
+  textureView,
+
+  /// Platform view will be used to render video.
+  platformView,
+}
+
 /// Event emitted from the platform implementation.
 @immutable
 class VideoEvent {
@@ -283,14 +380,8 @@ class VideoEvent {
   }
 
   @override
-  int get hashCode => Object.hash(
-        eventType,
-        duration,
-        size,
-        rotationCorrection,
-        buffered,
-        isPlaying,
-      );
+  int get hashCode =>
+      Object.hash(eventType, duration, size, rotationCorrection, buffered, isPlaying);
 }
 
 /// Type of the event.
@@ -299,6 +390,8 @@ class VideoEvent {
 /// completed or to communicate buffering events or play state changed.
 enum VideoEventType {
   /// The video has been initialized.
+  ///
+  /// A maximum of one event of this type may be emitted per instance.
   initialized,
 
   /// The playback has ended.
@@ -373,8 +466,7 @@ class DurationRange {
   }
 
   @override
-  String toString() =>
-      '${objectRuntimeType(this, 'DurationRange')}(start: $start, end: $end)';
+  String toString() => '${objectRuntimeType(this, 'DurationRange')}(start: $start, end: $end)';
 
   @override
   bool operator ==(Object other) =>
@@ -399,8 +491,13 @@ class VideoPlayerOptions {
   VideoPlayerOptions({
     this.mixWithOthers = false,
     this.allowBackgroundPlayback = false,
+    this.preventsDisplaySleepDuringVideoPlayback = true,
     this.webOptions,
-  });
+    this.backBufferDurationMs,
+  }) : assert(
+         backBufferDurationMs == null || backBufferDurationMs >= 0,
+         'backBufferDurationMs must be zero or greater',
+       );
 
   /// Set this to true to keep playing video in background, when app goes in background.
   /// The default value is false.
@@ -413,8 +510,21 @@ class VideoPlayerOptions {
   /// currently no way to implement this feature in this platform).
   final bool mixWithOthers;
 
+  /// Whether the screen is prevented from sleeping during video playback.
+  ///
+  /// Defaults to `true`.
+  ///
+  /// This option may not be supported on all platforms.
+  final bool preventsDisplaySleepDuringVideoPlayback;
+
   /// Additional web controls
   final VideoPlayerWebOptions? webOptions;
+
+  /// The duration, in milliseconds, of media to retain in the buffer prior to
+  /// the current playback position.
+  ///
+  /// Ignored on platforms that do not support controlling the back buffer.
+  final int? backBufferDurationMs;
 }
 
 /// [VideoPlayerWebOptions] can be optionally used to set additional web settings
@@ -425,6 +535,7 @@ class VideoPlayerWebOptions {
     this.controls = const VideoPlayerWebOptionsControls.disabled(),
     this.allowContextMenu = true,
     this.allowRemotePlayback = true,
+    this.poster,
   });
 
   /// Additional settings for how control options are displayed
@@ -435,6 +546,9 @@ class VideoPlayerWebOptions {
 
   /// Whether remote playback is allowed
   final bool allowRemotePlayback;
+
+  /// The URL of the poster image to be displayed before the video starts
+  final Uri? poster;
 }
 
 /// [VideoPlayerWebOptions] can be used to set how control options are displayed
@@ -450,11 +564,11 @@ class VideoPlayerWebOptionsControls {
 
   /// Disables control options. Default behavior.
   const VideoPlayerWebOptionsControls.disabled()
-      : enabled = false,
-        allowDownload = false,
-        allowFullscreen = false,
-        allowPlaybackRate = false,
-        allowPictureInPicture = false;
+    : enabled = false,
+      allowDownload = false,
+      allowFullscreen = false,
+      allowPlaybackRate = false,
+      allowPictureInPicture = false;
 
   /// Whether native controls are enabled
   final bool enabled;
@@ -481,7 +595,7 @@ class VideoPlayerWebOptionsControls {
 
   /// A string representation of disallowed controls
   String get controlsList {
-    final List<String> controlsList = <String>[];
+    final controlsList = <String>[];
     if (!allowDownload) {
       controlsList.add('nodownload');
     }
@@ -494,4 +608,207 @@ class VideoPlayerWebOptionsControls {
 
     return controlsList.join(' ');
   }
+}
+
+/// [VideoViewOptions] contains configuration options for a video view.
+@immutable
+class VideoViewOptions {
+  /// Constructs an instance of [VideoViewOptions].
+  const VideoViewOptions({required this.playerId});
+
+  /// The identifier of the video player.
+  final int playerId;
+}
+
+/// [VideoCreationOptions] contains creation options for a video player.
+@immutable
+class VideoCreationOptions {
+  /// Constructs an instance of [VideoCreationOptions].
+  const VideoCreationOptions({
+    required this.dataSource,
+    required this.viewType,
+    this.videoPlayerOptions,
+  });
+
+  /// The data source used to create the player.
+  final DataSource dataSource;
+
+  /// The type of view to be used for displaying the video player
+  final VideoViewType viewType;
+
+  /// Additional configuration options for the video player.
+  final VideoPlayerOptions? videoPlayerOptions;
+}
+
+/// Represents an audio track in a video with its metadata.
+@immutable
+class VideoAudioTrack {
+  /// Constructs an instance of [VideoAudioTrack].
+  const VideoAudioTrack({
+    required this.id,
+    required this.label,
+    required this.language,
+    required this.isSelected,
+    this.bitrate,
+    this.sampleRate,
+    this.channelCount,
+    this.codec,
+  });
+
+  /// Unique identifier for the audio track.
+  final String id;
+
+  /// Human-readable label for the track.
+  ///
+  /// May be null if not available from the platform.
+  final String? label;
+
+  /// Language code of the audio track (e.g., 'en', 'es', 'und').
+  ///
+  /// May be null if not available from the platform.
+  final String? language;
+
+  /// Whether this track is currently selected.
+  final bool isSelected;
+
+  /// Bitrate of the audio track in bits per second.
+  ///
+  /// May be null if not available from the platform.
+  final int? bitrate;
+
+  /// Sample rate of the audio track in Hz.
+  ///
+  /// May be null if not available from the platform.
+  final int? sampleRate;
+
+  /// Number of audio channels.
+  ///
+  /// May be null if not available from the platform.
+  final int? channelCount;
+
+  /// Audio codec used (e.g., 'aac', 'mp3', 'ac3').
+  ///
+  /// May be null if not available from the platform.
+  final String? codec;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is VideoAudioTrack &&
+            runtimeType == other.runtimeType &&
+            id == other.id &&
+            label == other.label &&
+            language == other.language &&
+            isSelected == other.isSelected &&
+            bitrate == other.bitrate &&
+            sampleRate == other.sampleRate &&
+            channelCount == other.channelCount &&
+            codec == other.codec;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, label, language, isSelected, bitrate, sampleRate, channelCount, codec);
+
+  @override
+  String toString() =>
+      'VideoAudioTrack('
+      'id: $id, '
+      'label: $label, '
+      'language: $language, '
+      'isSelected: $isSelected, '
+      'bitrate: $bitrate, '
+      'sampleRate: $sampleRate, '
+      'channelCount: $channelCount, '
+      'codec: $codec)';
+}
+
+/// Represents a video track (quality variant) in a video with its metadata.
+///
+/// For HLS/DASH streams, each [VideoTrack] represents a different quality
+/// level (e.g., 1080p, 720p, 480p). For regular videos, there may be only
+/// one track or none available.
+@immutable
+class VideoTrack {
+  /// Constructs an instance of [VideoTrack].
+  const VideoTrack({
+    required this.id,
+    required this.isSelected,
+    this.label,
+    this.bitrate,
+    this.width,
+    this.height,
+    this.frameRate,
+    this.codec,
+  });
+
+  /// Unique identifier for the video track.
+  ///
+  /// The format is platform-specific:
+  /// - Android: `"{groupIndex}_{trackIndex}"` (e.g., `"0_2"`)
+  /// - iOS: `"variant_{bitrate}"` for HLS, `"asset_{trackID}"` for regular videos
+  final String id;
+
+  /// Whether this track is currently selected.
+  final bool isSelected;
+
+  /// Human-readable label for the track (e.g., "1080p", "720p").
+  ///
+  /// May be null if not available from the platform.
+  final String? label;
+
+  /// Bitrate of the video track in bits per second.
+  ///
+  /// May be null if not available from the platform.
+  final int? bitrate;
+
+  /// Video width in pixels.
+  ///
+  /// May be null if not available from the platform.
+  final int? width;
+
+  /// Video height in pixels.
+  ///
+  /// May be null if not available from the platform.
+  final int? height;
+
+  /// Frame rate in frames per second.
+  ///
+  /// May be null if not available from the platform.
+  final double? frameRate;
+
+  /// Video codec used (e.g., "avc1", "hevc", "vp9").
+  ///
+  /// May be null if not available from the platform.
+  final String? codec;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is VideoTrack &&
+            runtimeType == other.runtimeType &&
+            id == other.id &&
+            isSelected == other.isSelected &&
+            label == other.label &&
+            bitrate == other.bitrate &&
+            width == other.width &&
+            height == other.height &&
+            frameRate == other.frameRate &&
+            codec == other.codec;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, isSelected, label, bitrate, width, height, frameRate, codec);
+
+  @override
+  String toString() =>
+      'VideoTrack('
+      'id: $id, '
+      'isSelected: $isSelected, '
+      'label: $label, '
+      'bitrate: $bitrate, '
+      'width: $width, '
+      'height: $height, '
+      'frameRate: $frameRate, '
+      'codec: $codec)';
 }

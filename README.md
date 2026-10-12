@@ -9,9 +9,9 @@ Prebuilt example can be download from artifacts of [github actions](https://gith
 project is create with `flutter create -t plugin --platforms=linux,macos,windows,android,ios -i objc -a java fvp`
 
 ## Features
-- All platforms: Windows x64(including win7) and arm64, Linux x64 and arm64, [embedded linux](https://github.com/sony/flutter-elinux), macOS, iOS, Android(requires flutter > 3.19 because of minSdk 21).
+- All platforms: Windows x64(including win7) and arm64, Linux x64 and arm64, [embedded linux](https://github.com/sony/flutter-elinux), macOS, iOS, Android(requires flutter > 3.19 because of minSdk 21) and HarmonyOS 5.0+.
 - You can choose official implementation or this plugin's
-- Optimal render api: d3d11 for windows, metal for macOS/iOS, OpenGL for Linux and Android(Impeller support)
+- Optimal render api: d3d11 for windows, metal for macOS/iOS, OpenGL for Linux, Android(Impeller support) and HarmonyOS.
 - Hardware decoders are enabled by default
 - Dolby Vision support on all platforms
 - Minimal code change for existing [Video Player](https://pub.dev/packages/video_player) apps
@@ -92,6 +92,16 @@ rm -rf {mac,i}os/Pods
 
 For other platforms, set environment var `FVP_DEPS_LATEST=1` and rebuilt, will upgrade to the latest sdk. If fvp is installed from pub.dev, run `flutter pub cache clean` is another option.
 
+To use an immutable SDK release or mirror, set its base URL and expected SHA-256. The platform archive name, such as `mdk-sdk-android.7z`, is appended to the URL.
+
+```bash
+FVP_DEPS_URL=https://example.com/mdk-sdk/releases/vX.Y.Z \
+FVP_DEPS_SHA256="replace-with-64-character-sha256" \
+flutter build apk
+```
+
+Replace the SHA-256 placeholder with the archive's 64-character digest. Both options can also be set as CMake cache variables. A non-empty CMake value takes precedence over the corresponding environment variable. When `FVP_DEPS_SHA256` is set, the downloaded archive is verified and the extracted SDK cache is reused only if its recorded checksum matches. `FVP_DEPS_LATEST` is ignored in this mode.
+
 
 # Design
 - Playback control api in dart via ffi
@@ -106,7 +116,7 @@ delete libffmpeg.so.* in your app bundle, which is copied from libmdk sdk.
 
 # Enable Subtitles
 
-libass is required, and it's added to your app automatically for windows, macOS and android(remove ass.dll, libass.dylib and libass.so from mdk-sdk if you don't need it). For iOS, [download](https://sourceforge.net/projects/mdk-sdk/files/deps/dep.7z/download) and add `ass.framework` to your xcode project. For linux, system libass can be used, you may have to install manually via system package manager.
+libass is required, and it's added to your app automatically for windows, macOS, ohos and android(remove ass.dll, libass.dylib and libass.so from mdk-sdk if you don't need it). For iOS, [download](https://sourceforge.net/projects/mdk-sdk/files/deps/dep.7z/download) and add `ass.framework` to your xcode project. For linux, system libass can be used, you may have to install manually via system package manager.
 
 If required subtitle font is not found in the system(e.g. android), you can add [assets/subfont.ttf](https://github.com/mpv-android/mpv-android/raw/master/app/src/main/assets/subfont.ttf) in pubspec.yaml assets as the fallback. Optionally you can also download the font file by fvp like this
 ```dart

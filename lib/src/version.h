@@ -1,2 +1,2 @@
 #pragma once
-#define FVP_VERSION "0.35.2"
+#define FVP_VERSION "0.39.0"

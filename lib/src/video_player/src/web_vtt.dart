@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2013 The Flutter Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,8 +15,7 @@ class WebVTTCaptionFile extends ClosedCaptionFile {
   /// Parses a string into a [ClosedCaptionFile], assuming [fileContents] is in
   /// the WebVTT file format.
   /// * See: https://en.wikipedia.org/wiki/WebVTT
-  WebVTTCaptionFile(String fileContents)
-      : _captions = _parseCaptionsFromWebVTTString(fileContents);
+  WebVTTCaptionFile(String fileContents) : _captions = _parseCaptionsFromWebVTTString(fileContents);
 
   @override
   List<Caption> get captions => _captions;
@@ -25,12 +24,12 @@ class WebVTTCaptionFile extends ClosedCaptionFile {
 }
 
 List<Caption> _parseCaptionsFromWebVTTString(String file) {
-  final List<Caption> captions = <Caption>[];
+  final captions = <Caption>[];
 
   // Ignore metadata
-  final Set<String> metadata = <String>{'HEADER', 'NOTE', 'REGION', 'WEBVTT'};
+  final metadata = <String>{'HEADER', 'NOTE', 'REGION', 'WEBVTT'};
 
-  int captionNumber = 1;
+  var captionNumber = 1;
   for (final List<String> captionLines in _readWebVTTFile(file)) {
     // CaptionLines represent a complete caption.
     // E.g
@@ -49,8 +48,9 @@ List<Caption> _parseCaptionsFromWebVTTString(String file) {
       continue;
     }
 
-    // Caption has header
-    final bool hasHeader = captionLines.length > 2;
+    // Caption has header / identifier
+    // See: https://www.w3.org/TR/webvtt1/#webvtt-cue-identifier for valid cue identifier
+    final bool hasHeader = !captionLines[0].contains(_webVTTArrow);
     if (hasHeader) {
       final int? tryParseCaptionNumber = int.tryParse(captionLines[0]);
       if (tryParseCaptionNumber != null) {
@@ -72,7 +72,7 @@ List<Caption> _parseCaptionsFromWebVTTString(String file) {
     // https://github.com/flutter/flutter/issues/90007.
     final String textWithoutFormat = _extractTextFromHtml(text);
 
-    final Caption newCaption = Caption(
+    final newCaption = Caption(
       number: captionNumber,
       start: captionRange.start,
       end: captionRange.end,
@@ -95,8 +95,7 @@ class _CaptionRange {
   // For example:
   // 00:09.000 --> 00:11.000
   static _CaptionRange? fromWebVTTString(String line) {
-    final RegExp format =
-        RegExp(_webVTTTimeStamp + _webVTTArrow + _webVTTTimeStamp);
+    final format = RegExp(_webVTTTimeStamp + _webVTTArrow + _webVTTTimeStamp);
 
     if (!format.hasMatch(line)) {
       return null;
@@ -148,7 +147,7 @@ Duration? _parseWebVTTTimestamp(String timestampString) {
   if (timeComponents.length > 3 || timeComponents.length < 2) {
     return null;
   }
-  int hours = 0;
+  var hours = 0;
   if (timeComponents.length == 3) {
     final String hourString = timeComponents.removeAt(0);
     if (hourString.length < 2) {
@@ -178,12 +177,7 @@ Duration? _parseWebVTTTimestamp(String timestampString) {
   // calling this method. See: https://github.com/flutter/plugins/pull/2878/files#r713381134.
   final int milliseconds = int.parse(milisecondsStyles[0]);
 
-  return Duration(
-    hours: hours,
-    minutes: minutes,
-    seconds: seconds,
-    milliseconds: milliseconds,
-  );
+  return Duration(hours: hours, minutes: minutes, seconds: seconds, milliseconds: milliseconds);
 }
 
 // Reads on VTT file and splits it into Lists of strings where each list is one
@@ -191,10 +185,10 @@ Duration? _parseWebVTTTimestamp(String timestampString) {
 List<List<String>> _readWebVTTFile(String file) {
   final List<String> lines = LineSplitter.split(file).toList();
 
-  final List<List<String>> captionStrings = <List<String>>[];
-  List<String> currentCaption = <String>[];
-  int lineIndex = 0;
-  for (final String line in lines) {
+  final captionStrings = <List<String>>[];
+  var currentCaption = <String>[];
+  var lineIndex = 0;
+  for (final line in lines) {
     final bool isLineBlank = line.trim().isEmpty;
     if (!isLineBlank) {
       currentCaption.add(line);

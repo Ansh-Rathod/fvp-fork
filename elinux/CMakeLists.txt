@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.17)
 set(PROJECT_NAME "fvp")
 project(${PROJECT_NAME} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
@@ -14,7 +14,8 @@ add_library(${PLUGIN_NAME} SHARED
 )
 apply_standard_settings(${PLUGIN_NAME})
 set_target_properties(${PLUGIN_NAME} PROPERTIES
-  CXX_VISIBILITY_PRESET hidden)
+  CXX_VISIBILITY_PRESET hidden
+  OUTPUT_NAME "fvp")
 target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")

@@ -7,8 +7,6 @@ import 'src/video_player_mdk.dart'
     if (dart.library.html) 'src/video_player_dummy.dart';
 
 export 'src/controller.dart';
-export 'src/video_player/avfoundation.dart';
-export 'src/video_player/closed_caption_file.dart';
 export 'src/video_player/video_player.dart';
 
 /// Registers this plugin as the default instance of VideoPlayerPlatform. Then your [VideoPlayer] will support all platforms.
@@ -30,7 +28,7 @@ export 'src/video_player/video_player.dart';
 ///
 /// "global": backend global options of type [Map<String, Object>]. See https://github.com/wang-bin/mdk-sdk/wiki/Global-Options
 ///
-/// "tunnel": android only, default is false. AMediacodec/MediaCodec decoder output to a SurfaceTexture surface directly without OpenGL. Maybe more efficient, but some features are not supported, e.g. HDR tone mapping, less codecs.
+/// "tunnel": android only, default is false. AMediacodec/MediaCodec decoder output to the surface directly (a SurfaceTexture, or a SurfaceView via VideoViewType.platformView) without OpenGL: no GL renderer, no EGLConfig, no GPU copy, and the video scans out at its native resolution, so "maxWidth"/"maxHeight" are not applied. This is what lets a 4K video present at full panel resolution on TVs whose UI layer runs at 1080p. Maybe more efficient, but some features are not supported, e.g. HDR tone mapping and frame readback (snapshot), and fewer codecs.
 ///
 /// 'subtitleFontFile': default subtitle font file as the fallback, can be an http url. If not set, 'assets/subfont.ttf' will be used, you can add it in pubspec.yaml if you need it.
 /// subfont.ttf can be downloaded from https://github.com/mpv-android/mpv-android/raw/master/app/src/main/assets/subfont.ttf

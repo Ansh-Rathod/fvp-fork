@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2023-2026 WangBin <wbsecg1 at gmail.com>
  */
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -28,6 +28,7 @@ public:
     int height = 0;
     jobject surface = nullptr;
     void* vo_opaque = nullptr; // can change by TextureRegistry.SurfaceProducer.Callback
+    bool directSurface = false; // decoder renders into the surface, no GL renderer
 private:
 };
 
@@ -37,18 +38,16 @@ static unordered_map<int64_t, shared_ptr<TexturePlayer>> players;
 extern "C" {
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
-
+    clog << "JNI_OnLoad" << endl;
+    mdk::javaVM(vm);
     mdk::SetGlobalOption("profiler.gpu", 1);
 
-    clog << "JNI_OnLoad" << endl;
     JNIEnv *env = nullptr;
     if (vm->GetEnv((void **) &env, JNI_VERSION_1_4) != JNI_OK || !env) {
         clog << "GetEnv for JNI_VERSION_1_4 failed" << endl;
         return -1;
     }
 
-    mdk::SetGlobalOption("JavaVM", vm);
-    mdk::SetGlobalOption("MDK_KEY", "980B9623276F746C5FBB5EC5120D4A99A0B58B635592EAEE41F6817FDF3B28B96AC4A49866257726C19B246863B5ADAF5D17464E86D72A90634E8AE8418F810967F469DCD8908B93A044A13AEDF2B566E0B5810523E2B59E2D83E616B1B807B66253E1607A79BC86AEDE1AEF46F79AA60F36BE44DDEE47B84E165AF2788F8109");
     return JNI_VERSION_1_4;
 }
 
@@ -65,10 +64,19 @@ Java_com_mediadevkit_fvp_FvpPlugin_nativeSetSurface(JNIEnv *env, jobject thiz, j
         if (auto it = players.find(tex_id); it != players.end()) {
             auto& player = it->second;
             auto s = player->surface;
+            if (player->directSurface) {
+                // Release the codec BEFORE the surface dies, or it wedges
+                // (dequeue -10000) and the stream is marked decode-error, so
+                // the next surface never shows a frame. Empty list, not a
+                // surface-less re-open: that costs ~600ms of codec restart
+                // and pipeline re-prime, here on the UI thread inside
+                // surfaceDestroyed.
+                player->setDecoders(mdk::MediaType::Video, {});
+            }
             player->updateNativeSurface(nullptr);
             players.erase(it);
             if (s) {
-                env->DeleteGlobalRef(surface);
+                env->DeleteGlobalRef(s);
             }
         } else {
             clog << "player not found(already removed?) for textureId " + std::to_string(tex_id) + " surface " + std::to_string((intptr_t)surface) << endl;
@@ -78,14 +86,42 @@ Java_com_mediadevkit_fvp_FvpPlugin_nativeSetSurface(JNIEnv *env, jobject thiz, j
     assert(surface && "null surface");
     auto player = make_shared<TexturePlayer>(player_handle);
     clog << __func__ << endl;
-    if (tunnel) { // TODO: tunel via ffi + global var
+    if (tunnel) {
+        // MediaCodec writes into the surface's buffer queue itself: no GL
+        // renderer, no EGLConfig, no GPU copy. image=0 drops the AImageReader
+        // readback path; dv=1 is needed for Dolby Vision profile 5 on older
+        // SDKs. The surface only exists after prepare(), so setDecoders is
+        // what forces the re-open that makes it take effect.
         player->surface = env->NewGlobalRef(surface);
-        player->setProperty("video.decoder", "surface=" + std::to_string((intptr_t)player->surface));
+        player->directSurface = true;
+        player->setDecoders(mdk::MediaType::Video,
+            {"AMediaCodec:dv=1:image=0:surface=" + std::to_string((intptr_t)player->surface)});
     } else {
-        player->updateNativeSurface(surface, w, h);
-        player->vo_opaque = surface;
+        player->surface = env->NewGlobalRef(surface);
+        player->updateNativeSurface(player->surface, w, h);
+        player->vo_opaque = player->surface;
     }
+    player->width = w;
+    player->height = h;
     players[tex_id] = player;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_mediadevkit_fvp_FvpPlugin_nativeSetSurfaceSize(JNIEnv *env, jobject thiz, jlong tex_id,
+                                                        jint w, jint h) {
+    auto it = players.find(tex_id);
+    if (it == players.end()) {
+        return;
+    }
+    auto& player = it->second;
+    player->width = w;
+    player->height = h;
+    // Only the GL renderer draws at the surface size; with tunnel the decoder
+    // owns the geometry and the compositor scales its layer.
+    if (!player->directSurface && player->surface) {
+        player->updateNativeSurface(player->surface, w, h);
+    }
 }
 
 extern "C"

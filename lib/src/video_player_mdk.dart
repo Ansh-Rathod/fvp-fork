@@ -4,20 +4,32 @@
 
 import 'dart:async';
 import 'dart:io';
-
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart' show PlatformViewHitTestBehavior;
 import 'package:flutter/widgets.dart'; //
-import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
+import 'video_player/video_player_platform.dart';
 import 'package:logging/logging.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:ffi/ffi.dart';
+import 'fvp_platform_interface.dart';
+import 'extensions.dart';
+import 'lib.dart';
+import 'media_info.dart';
 
 import '../mdk.dart' as mdk;
-import 'extensions.dart';
-import 'fvp_platform_interface.dart';
-import 'media_info.dart';
-import 'video_player/video_player_platform.dart';
 
 final _log = Logger('fvp');
+
+// Default MDK_KEY bundled with this plugin. Users can override it by passing
+// {'global': {'MDK_KEY': '<key>'}} to registerWith().
+const _kDefaultMdkKey =
+    '4DF316BC71206BCEECD01559CC0FEDAF32DF8ECAE656BD9999CB821B67DB5B33'
+    '2B323F24539BA7172746B8F5A64CA67AF342B16BF4B418F76718B821F77BEA07'
+    '22F71DBC8EDF9431132FEAA633F0125072DF8DAC90268C62D0E4BA7D6DF9A6C4'
+    '976AB1146EC55FFD1945CAB4125B20D5C77976CF1BCB77B14C563868EA00EA07';
 
 class MdkVideoPlayer extends mdk.Player {
   final streamCtl = StreamController<VideoEvent>();
@@ -176,6 +188,7 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
         'ios': ['VT', 'FFmpeg', 'dav1d'],
         'linux': vdLinux,
         'android': ['AMediaCodec', 'FFmpeg', 'dav1d'],
+        'ohos': ['OH', 'FFmpeg', 'dav1d'],
       };
       _decoders = vd[Platform.operatingSystem];
     }
@@ -237,8 +250,13 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
           PlatformEx.assetUri(_subtitleFontFile ?? 'assets/subfont.ttf'));
     }
     _globalOpts?.forEach((key, value) {
+      if (key == 'MDK_KEY') return; // handled separately below
       mdk.setGlobalOption(key, value);
     });
+    final mdkKey = _globalOpts?['MDK_KEY'] as String? ?? _kDefaultMdkKey;
+    final k = mdkKey.toNativeUtf8();
+    Libfvp.setKey(k.cast());
+    malloc.free(k);
   }
 
   @override
@@ -246,11 +264,26 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<void> dispose(int playerId) async {
+    _platformViewParams.remove(playerId);
     _players.remove(playerId)?.dispose();
   }
 
+  /// Creation parameters for players rendering into a platform view
+  /// (SurfaceView on Android), keyed by playerId. Absent for texture players.
+  final _platformViewParams = <int, Map<String, Object>>{};
+
   @override
-  Future<int?> create(DataSource dataSource) async {
+  Future<int?> createWithOptions(VideoCreationOptions options) {
+    // SurfaceView output is Android-only; other platforms keep the texture.
+    return _create(options.dataSource,
+        Platform.isAndroid ? options.viewType : VideoViewType.textureView);
+  }
+
+  @override
+  Future<int?> create(DataSource dataSource) =>
+      _create(dataSource, VideoViewType.textureView);
+
+  Future<int?> _create(DataSource dataSource, VideoViewType viewType) async {
     final uri = _toUri(dataSource);
     final player = MdkVideoPlayer();
     _log.fine('$hashCode player${player.nativeHandle} create($uri)');
@@ -306,6 +339,64 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
       ));
       //player.dispose(); // dispose for throw
       return -hashCode;
+    }
+    if (viewType == VideoViewType.platformView) {
+      // SurfaceView output (Android): no Flutter texture. The surface is
+      // created by the FvpVideoView platform view and attached to the player
+      // natively; buffers are sized to the video so TVs with an upscaled UI
+      // layer (e.g. 1080p UI on a 4K panel) still scan out at full video
+      // resolution. playerId is the native handle instead of a texture id.
+      final size = await player.textureSize;
+      if (size == null || size.width <= 0 || size.height <= 0) {
+        _players[-hashCode] = player;
+        player.streamCtl.addError(PlatformException(
+          code: 'video size error',
+          message: 'invalid or unsupported media with invalid video size',
+        ));
+        return -hashCode;
+      }
+      final id = player.nativeHandle;
+      // Clamp the GL render target as the texture path does — full 4K RGBA can
+      // push SurfaceFlinger into GPU composition on weak GPUs. "tunnel" has no
+      // GL renderer, so the decoder's own geometry stands.
+      var w = size.width.toInt();
+      var h = size.height.toInt();
+      if (_tunnel ?? false) {
+        // native size, no clamp
+      } else if (_maxWidth != null &&
+          _maxHeight != null &&
+          (_fitMaxSize ?? true)) {
+        final r = w / h;
+        final fitW = (_maxHeight! * r).toInt();
+        if (fitW <= _maxWidth!) {
+          if (fitW < w) {
+            w = fitW;
+            h = _maxHeight!;
+          }
+        } else if (_maxWidth! < w) {
+          h = (_maxWidth! / r).toInt();
+          w = _maxWidth!;
+        }
+      } else {
+        if (_maxWidth != null && _maxWidth! < w) {
+          h = (h * _maxWidth! / w).round();
+          w = _maxWidth!;
+        }
+        if (_maxHeight != null && _maxHeight! < h) {
+          w = (w * _maxHeight! / h).round();
+          h = _maxHeight!;
+        }
+      }
+      _platformViewParams[id] = <String, Object>{
+        'player': player.nativeHandle,
+        'width': w,
+        'height': h,
+        'tunnel': _tunnel ?? false,
+      };
+      _log.fine('$hashCode player${player.nativeHandle} platform view, '
+          'video ${size.width.toInt()}x${size.height.toInt()}');
+      _players[id] = player;
+      return id;
     }
 // FIXME: pending events will be processed after texture returned, but no events before prepared
 // FIXME: set tunnel too late
@@ -394,6 +485,49 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
   }
 
   @override
+  Widget buildViewWithOptions(VideoViewOptions options) {
+    final playerId = options.playerId;
+    final creationParams = _platformViewParams[playerId];
+    if (creationParams == null) {
+      // Texture player (default).
+      return buildView(playerId);
+    }
+    // SurfaceView requires hybrid composition (initExpensiveAndroidView):
+    // under Flutter's default TLHC mode a SurfaceView draws at the wrong
+    // location/z-index (see Flutter's Android platform views docs).
+    // Builder: Directionality is only readable from a context below this.
+    return Builder(builder: (context) {
+      final layoutDirection =
+          Directionality.maybeOf(context) ?? TextDirection.ltr;
+      return PlatformViewLink(
+        viewType: 'fvp/video-view',
+        surfaceFactory: (context, controller) {
+          return AndroidViewSurface(
+            controller: controller as AndroidViewController,
+            gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{},
+            hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+          );
+        },
+        onCreatePlatformView: (params) {
+          final controller = PlatformViewsService.initExpensiveAndroidView(
+            id: params.id,
+            viewType: 'fvp/video-view',
+            // The direction Flutter resolved for this view's context — a
+            // hard-coded ltr lays the view out wrongly in an RTL app.
+            layoutDirection: layoutDirection,
+            creationParams: creationParams,
+            creationParamsCodec: const StandardMessageCodec(),
+          );
+          controller
+              .addOnPlatformViewCreatedListener(params.onPlatformViewCreated);
+          controller.create();
+          return controller;
+        },
+      );
+    });
+  }
+
+  @override
   Future<void> setMixWithOthers(bool mixWithOthers) async {
     FvpPlatform.instance.setMixWithOthers(mixWithOthers);
   }
@@ -404,8 +538,8 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
   }
 
   @override
-  MediaInfo? getMediaInfo(int textureId) {
-    return _players[textureId]?.mediaInfo;
+  MediaInfo? getMediaInfo(int playerId) {
+    return _players[playerId]?.mediaInfo;
   }
 
   void setProperty(int playerId, String name, String value) {
@@ -508,6 +642,11 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
     _players[playerId]?.setMedia(uri, mdk.MediaType.subtitle);
   }
 
+  void onSubtitleText(int playerId,
+      void Function(double start, double end, List<String> text)? callback) {
+    _players[playerId]?.onSubtitleText(callback);
+  }
+
   Future<void> _seekToWithFlags(
       int playerId, Duration position, mdk.SeekFlag flags) async {
     final player = _players[playerId];
@@ -538,41 +677,5 @@ class MdkVideoPlayerPlatform extends VideoPlayerPlatform {
       case DataSourceType.contentUri:
         return dataSource.uri!;
     }
-  }
-
-/////////// custom apis starts here
-
-  @override
-  void setSubtitleTrack(int textureId, int trackNum) {
-    _players[textureId]?.activeSubtitleTracks = [trackNum];
-  }
-
-  @override
-  Future<Duration?> toNextFrame(int textureId, [int? step]) async {
-    final duration = await _players[textureId]?.seek(
-      position: step ?? 1,
-      flags: const mdk.SeekFlag(mdk.SeekFlag.fromNow | mdk.SeekFlag.frame),
-    );
-    if (duration == null) {
-      return null;
-    }
-    return Duration(milliseconds: duration);
-  }
-
-  @override
-  Future<Duration?> toPrevFrame(int textureId, [int? step]) async {
-    final duration = await _players[textureId]?.seek(
-      position: step ?? -1,
-      flags: const mdk.SeekFlag(mdk.SeekFlag.fromNow | mdk.SeekFlag.frame),
-    );
-    if (duration == null) {
-      return null;
-    }
-    return Duration(milliseconds: duration);
-  }
-
-  @override
-  void setAudioTrack(int textureId, int trackNum) {
-    _players[textureId]?.activeAudioTracks = [trackNum];
   }
 }

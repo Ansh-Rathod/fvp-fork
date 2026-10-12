@@ -1,3 +1,56 @@
+# 0.39.0
+
+* android require java 17, compileSdk 36
+* drain callbacks before deleting player, fix UAF if disposed
+* windows: fix texture callback triggered after player destroyed
+* windows: fix dart posts after engine shutdown
+* linux: disable scissor test
+
+# 0.38.1
+
+* align SPM mdk with CocoaPods (~> 0.38.0)
+
+# 0.38.0
+
+* add `onSubtitleText` for VideoPlayerController extension
+* cmake: support pinned sdk dependency
+* support platform view for android
+* support tunnel mode for android
+* fix resourceManager for ohos
+
+# 0.37.3
+
+* fix PrivacyInfo.xcprivacy for SPM
+* upgrade libmdk for SPM
+* fix new cmake build on windows
+
+# 0.37.2
+
+* produce dynamic framework with SPM
+
+# 0.37.1
+
+* support swift package manager
+
+# 0.37.0
+
+* add Player.setPointMap() to support ROI rendering
+* add Player.pointMap() to map between widget viewport coordinates and frame coordinates
+* support asset for OHOS
+
+# 0.36.2
+
+* fix MDK_KEY in release build
+
+## 0.36.1
+
+* fix ohos plugin native lib name
+
+## 0.36.0
+
+* new ohos platform
+* rename native shared lib
+
 ## 0.35.2
 
 * log plugin version

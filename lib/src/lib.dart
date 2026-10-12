@@ -1,4 +1,4 @@
-// Copyright 2022-2024 Wang Bin. All rights reserved.
+// Copyright 2022-2026 Wang Bin. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import 'dart:ffi';
@@ -18,6 +18,7 @@ abstract class Libmdk {
       case 'linux':
         name = 'libmdk.so.0';
       case 'android':
+      case 'ohos':
         name = 'libmdk.so';
       default:
         throw Exception(
@@ -38,11 +39,13 @@ abstract class Libfvp {
   static DynamicLibrary _load() {
     String name;
     if (Platform.isWindows) {
-      name = 'fvp_plugin.dll';
+      name = 'fvp.dll';
     } else if (Platform.isIOS || Platform.isMacOS) {
       name = 'fvp.framework/fvp';
-    } else if (Platform.isAndroid || Platform.isLinux) {
-      name = 'libfvp_plugin.so';
+    } else if (Platform.isAndroid ||
+        Platform.isLinux ||
+        Platform.operatingSystem == 'ohos') {
+      name = 'libfvp.so';
     } else {
       throw Exception(
         'Unsupported operating system: ${Platform.operatingSystem}.',
@@ -56,6 +59,8 @@ abstract class Libfvp {
   }
 
   static final instance = _load();
+  static final setKey = instance.lookupFunction<Void Function(Pointer<Char>),
+      void Function(Pointer<Char>)>('MdkSetKey');
   static final registerPort = instance.lookupFunction<
       Void Function(Int64, Pointer<Void>, Int64),
       void Function(int, Pointer<Void>, int)>('MdkCallbacksRegisterPort');

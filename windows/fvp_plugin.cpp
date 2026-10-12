@@ -4,6 +4,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 #include "fvp_plugin.h"
+#include "../lib/src/callbacks.h"
 #include <flutter/standard_method_codec.h>
 
 #pragma comment(lib, "dxgi.lib")
@@ -124,15 +125,18 @@ void FvpPlugin::RegisterWithRegistrar(
       });
 
   registrar->AddPlugin(std::move(plugin));
-  SetGlobalOption("MDK_KEY", "980B9623276F746C5FBB5EC5120D4A99A0B58B635592EAEE41F6817FDF3B28B96AC4A49866257726C19B246863B5ADAF5D17464E86D72A90634E8AE8418F810967F469DCD8908B93A044A13AEDF2B566E0B5810523E2B59E2D83E616B1B807B66253E1607A79BC86AEDE1AEF46F79AA60F36BE44DDEE47B84E165AF2788F8109");
 }
 
 FvpPlugin::FvpPlugin(flutter::TextureRegistrar* tr, IDXGIAdapter* adapter)
     : texture_registrar_(tr)
     , adapter_(adapter)
-{}
+{
+  MdkCallbacksStartup();
+}
 
-FvpPlugin::~FvpPlugin() {}
+FvpPlugin::~FvpPlugin() {
+  MdkCallbacksShutdown();
+}
 
 void FvpPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
@@ -178,11 +182,25 @@ void FvpPlugin::HandleMethodCall(
   } else if (method_call.method_name() == "ReleaseRT") {
     auto args = std::get<flutter::EncodableMap>(*method_call.arguments());
     const auto texId = args[flutter::EncodableValue("texture")].LongValue();
-    texture_registrar_->UnregisterTexture(texId);
+    // Dart waits for this result before deleting the underlying MDK player.
+    // Keep the wrapper alive until Flutter no longer uses its texture callback.
+    auto release_result =
+        std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>(
+            std::move(result));
     if (auto it = players_.find(texId); it != players_.cend()) {
+        auto player = std::move(it->second);
         players_.erase(it);
+        player->setRenderCallback(nullptr);
+        texture_registrar_->UnregisterTexture(
+            texId, [player = std::move(player), release_result]() mutable {
+                player.reset();
+                release_result->Success();
+            });
+    } else {
+        texture_registrar_->UnregisterTexture(texId, [release_result]() {
+            release_result->Success();
+        });
     }
-    result->Success();
   } else if (method_call.method_name() == "MixWithOthers") {
     result->Success();
   } else {
